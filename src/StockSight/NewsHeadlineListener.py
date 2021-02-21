@@ -9,7 +9,7 @@ Copyright (C) Allen (Jian Feng) Xie 2019
 stocksight is released under the Apache 2.0 license. See
 LICENSE for the full license text.
 """
-import re
+import re, asyncio, os
 from datetime import datetime
 import time
 from random import randint
@@ -17,6 +17,7 @@ from random import randint
 
 import nltk
 from abc import ABC, abstractmethod
+from pyppeteer import launch
 
 try:
     import urllib.parse as urlparse
@@ -27,19 +28,20 @@ from StockSight.Initializer.ElasticSearch import es
 from StockSight.Initializer.Redis import rds
 from StockSight.Helper.Sentiment import *
 from StockSight.Model.Article import *
-
+from base import Symbol, SymbolAlias, TwitterUser, ArticleAuthor
 
 
 class NewsHeadlineListener(ABC):
-    def __init__(self, news_type, symbol, url=None):
-        self.symbol = symbol
+    def __init__(self, news_type, symbol, url=None, use_browser=False):
+        self.symbol = Symbol.objects.get(name=symbol)
         self.url = url
         self.type = news_type
         self.cache_length = 2628000
-        self.index_name = config['elasticsearch']['table_prefix']['sentiment']+self.symbol.lower()
+        self.use_browser = use_browser
+        self.index_name = config['elasticsearch']['table_prefix']['sentiment']+self.symbol.name.lower()
 
     def execute(self):
-        logger.info("Scraping news for %s from %s... Start" % (self.symbol, self.type))
+        logger.info("Scraping news for %s from %s... Start" % (self.symbol.name, self.type))
         articles = self.get_news_headlines()
 
         # add any new headlines
@@ -47,10 +49,10 @@ class NewsHeadlineListener(ABC):
 
             if rds.exists(article_obj.msg_id) is 0:
 
-                datenow = datetime.utcnow().isoformat()
+                published_at = article_obj.published_at.isoformat()
                 # output news data
                 print("\n------------------------------")
-                print("Date: " + datenow)
+                print("Date: " + published_at)
                 print("News Headline: " + article_obj.title)
                 print("Location (url): " + article_obj.url)
 
@@ -67,9 +69,7 @@ class NewsHeadlineListener(ABC):
                         rds.set(article_obj.msg_id, 1, self.cache_length)
                         continue
 
-                nltk_tokens = []
-                if self.symbol in config['symbols']:
-                    nltk_tokens = config['symbols'][self.symbol]
+                nltk_tokens = self.symbol.symbol_aliases.values_list('name', flat=True)
 
                 # check required tokens from config
                 tokenspass = False
@@ -93,7 +93,7 @@ class NewsHeadlineListener(ABC):
                          doc_type="_doc",
                          body={
                                "msg_id": article_obj.msg_id,
-                               "date": datenow,
+                               "date": published_at,
                                "referer_url": article_obj.referer_url,
                                "url": article_obj.url,
                                "title": article_obj.title,
@@ -108,7 +108,9 @@ class NewsHeadlineListener(ABC):
 
                 rds.set(article_obj.msg_id, 1, self.cache_length)
 
-        logger.info("Scraping news for %s from %s... Done" % (self.symbol, self.type))
+        ArticleAuthor.create_from_articles(articles, self.type)
+
+        logger.info("Scraping news for %s from %s... Done" % (self.symbol.name, self.type))
 
     @abstractmethod
     def get_news_headlines(self):
@@ -141,7 +143,53 @@ class NewsHeadlineListener(ABC):
         if(config['spawn_intervals']['request_min'] > 0):
             time.sleep(randint(config['spawn_intervals']['request_min'], config['spawn_intervals']['request_max']))
 
-        req = requests.get(url)
-        html = req.text
+        html = self.get_text(url)
         soup = BeautifulSoup(html, 'html.parser')
         return soup
+
+    def get_text(self, url):
+        if self.use_browser:
+            return self.browser(url)
+
+        req = requests.get(url)
+        return req.text
+
+    def browser(self, url):
+        return self.get_or_create_eventloop().run_until_complete(self.__async__browser(url))
+
+    def get_or_create_eventloop(self):
+        try:
+            return asyncio.get_event_loop()
+        except RuntimeError as ex:
+            if "There is no current event loop in thread" in str(ex):
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                return asyncio.get_event_loop()
+
+    async def __async__browser(self, url):
+        chrome_bin_path = os.getenv('GOOGLE_CHROME_BIN', '/usr/bin/chromium-browser')
+        browser = await launch(options={
+            'args': [
+                '--no-sandbox',
+                # '--proxy-server=103.83.116.202:55443',
+                # '--proxy-bypass-list=*',
+                # '--no-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-setuid-sandbox'
+                ],
+            'executablePath': chrome_bin_path,
+            'headless': True
+            },
+            handleSIGINT=False,
+            handleSIGTERM=False,
+            handleSIGHUP=False
+        )
+        page = await browser.newPage()
+        page.setDefaultNavigationTimeout(60000)
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36')
+        await page.goto(url)
+
+        content = await page.evaluate('document.documentElement.innerHTML', force_expr=True)
+        await browser.close()
+
+        return content

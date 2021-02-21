@@ -8,13 +8,14 @@ version: '3'
 
 services:
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.3.1
+    image: amazon/opendistro-for-elasticsearch:1.13.0
+    # image: docker.elastic.co/elasticsearch/elasticsearch:7.3.1
     environment:
       - cluster.name=elasticsearch
       - node.name=stockdata
       - cluster.initial_master_nodes=stockdata
       - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
     volumes:
       - ./data:/usr/share/elasticsearch/data
     ulimits:
@@ -28,34 +29,52 @@ services:
         soft: 4096
         hard: 4096
     #expose this port for local dev only!
-    #ports:
-    #  - "9200:9200"
-    restart: unless-stopped
+    ports:
+     - 9200:9200
+     - 9600:9600
+    # restart: unless-stopped
   redis:
-    build:
-      context: ./redis-docker
+    image: redis #:5-alpine
+    volumes:
+      - $PWD/redis-docker/redis.conf:/usr/local/etc/redis/redis.conf
+    command: 
+      - redis-server
+      - /usr/local/etc/redis/redis.conf
+    # build:
+    #   context: ./redis-docker
     #expose this port for local dev only!
-    #ports:
-    #  - "6379:6379"
+    ports:
+     - "6379:6379"
     restart: unless-stopped
   kibana:
-    image: docker.elastic.co/kibana/kibana:7.3.1
+    image: amazon/opendistro-for-elasticsearch-kibana:1.13.0
+    # image: docker.elastic.co/kibana/kibana:7.3.1
     depends_on:
       - elasticsearch
     ports:
       - "5601:5601"
-    restart: unless-stopped
+    # restart: unless-stopped
+    environment:
+      ELASTICSEARCH_URL: https://elasticsearch:9200
+      ELASTICSEARCH_HOSTS: https://elasticsearch:9200
   python3:
-    build:
-      context: ./python-docker
+    image: python:3.9.1-alpine3.12
+    # build:
+    #   context: ./python-docker
+    ports:
+      - "8000:8000"
     environment:
       #interval for getting stock price in seconds
       - stockprice_tick_time=120
       #interval for getting stock news in seconds
       - news_sentiment_tick_time=3600
+      - GOOGLE_CHROME_BIN=/usr/bin/chromium-browser
     depends_on:
       - elasticsearch
       - redis
+      - kibana
+    working_dir: /usr/src/app
     volumes:
-      - ./src:/usr/src/app
-    restart: unless-stopped
+      - $PWD/src:/usr/src/app
+      - $PWD/python-docker/requirements.txt:/usr/src/app/requirements.txt
+    # restart: unless-stopped

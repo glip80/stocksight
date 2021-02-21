@@ -10,13 +10,17 @@ LICENSE for the full license text.
 """
 import yaml
 from definitions import PROJECT_SRC_PATH
+# from helpers.AppTemplate import AppTemplate
 
 config_file = PROJECT_SRC_PATH+'/config.yml'
 
 
 def load_config(yml_file):
-    with open(yml_file) as json_data_file:
-        data = yaml.load(json_data_file, yaml.FullLoader)
+    with open(yml_file) as data_file:
+        # ebd = AppTemplate(data_file.read())
+        # import pdb; pdb.set_trace()
+        # data = yaml.load(ebd.result, yaml.FullLoader)
+        data = yaml.load(data_file, yaml.FullLoader)
     return data
 
 config = load_config(config_file)

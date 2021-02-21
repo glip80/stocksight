@@ -10,10 +10,14 @@ Copyright (C) Allen (Jian Feng) Xie 2019
 stocksight is released under the Apache 2.0 license. See
 LICENSE for the full license text.
 """
-import requests
+# import requests
 import sys
 import os
+import tempfile
 from StockSight.Initializer.ConfigReader import *
+from base import Symbol, SymbolAlias, TwitterUser
+from StockSight.Initializer.Kibana import kibana
+
 
 STOCKSIGHT_VERSION = '0.2'
 __version__ = STOCKSIGHT_VERSION
@@ -25,27 +29,23 @@ if __name__ == '__main__':
         import_template = template_file.read()
         template_file.close()
 
-        for symbol in config['symbols']:
+        for symbol in Symbol.objects.values_list('name', flat=True):
             try:
                 print("Starting %s Kibana Dashboard Import" % symbol)
-                ndjson_file_path = 'kibana_export/tmp/'+symbol+'_exports.ndjson'
-                ndjson_file = open(ndjson_file_path, "wt", encoding='utf-8')
-                final_text = import_template.replace('tmpl', symbol)
-                ndjson_file.write(final_text)
-                ndjson_file.close()
+                with tempfile.NamedTemporaryFile(suffix='.ndjson') as ndjson_file:
+                    final_text = import_template.replace('tmpl', symbol)
+                    ndjson_file.write(bytes(final_text, encoding = 'utf-8'))
+                    ndjson_file.seek(0)
 
-                kibana_import_url = 'http://kibana:5601/api/saved_objects/_import'
+                    overwrite = os.getenv('KIBANA_OVERWRITE', False)
+                    if overwrite is False:
+                        payload = {}
+                    else:
+                        payload = {'overwrite': 'true'}
+                    
+                    post = kibana.import_saved_objects(ndjson_file, payload)
 
-                overwrite = os.getenv('KIBANA_OVERWRITE', False)
-                if overwrite is False:
-                    payload = {}
-                else:
-                    payload = {'overwrite': 'true'}
-
-                headers = {'kbn-xsrf': 'True'}
-                post = requests.request('POST', kibana_import_url, params=payload, headers=headers, files={'file': open(ndjson_file_path, "rt", encoding='utf-8')})
                 print("Imported %s Kibana Dashboard" % symbol)
-                print(ndjson_file_path)
                 print(post.text)
 
             except Exception as e:

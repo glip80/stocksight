@@ -10,9 +10,11 @@ WORKDIR /usr/src/app
 
 ADD requirements.txt ./requirements.txt
 
-RUN apk --no-cache add curl
+RUN apk --no-cache add curl chromium alpine-sdk
 
 RUN pip install --no-cache-dir -r requirements.txt
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 RUN [ "python", "-c", "import nltk; nltk.download('punkt')" ]
 

@@ -21,6 +21,7 @@ from StockSight.Initializer.ConfigReader import *
 from StockSight.Initializer.ElasticSearch import es
 from StockSight.Initializer.Redis import rds
 from StockSight.Helper.Sentiment import *
+from base import Symbol, SymbolAlias, TwitterUser
 
 from tweepy.streaming import StreamListener
 
@@ -32,6 +33,7 @@ class TweetStreamListener(StreamListener):
 
     # on success
     def on_data(self, data):
+
 
         try:
             # decode json
@@ -111,21 +113,14 @@ class TweetStreamListener(StreamListener):
                 if t in tokens:
                     logger.info("Tweet contains token from ignore list, not adding")
                     return True
-            # check required tokens from config
-            tokenspass = False
-            for key in config['symbols']:
-                self.symbol = key
-                for t in config['symbols'][key]:
-                    if t in tokens:
-                        tokenspass = True
-                        break
-                if tokenspass:
-                    break
 
-            if not tokenspass:
+            token = SymbolAlias.objects.filter(name__in=tokens).first()
+
+            if token is None:
                 logger.info("Tweet does not contain token from required list, not adding")
                 return True
 
+            self.symbol = token.symbol
             # strip out hashtags for language processing
             tweet = re.sub(r"[#|@|\$]\S+", "", text)
             tweet.strip()
@@ -136,7 +131,7 @@ class TweetStreamListener(StreamListener):
             # remove hashtags for elasticsearch
             # text_filtered = re.sub(r"[#|@|\$]\S+", "", text_filtered)
 
-            self.index_name = config['elasticsearch']['table_prefix']['sentiment']+self.symbol.lower()
+            self.index_name = config['elasticsearch']['table_prefix']['sentiment']+self.symbol.name.lower()
             logger.info("Adding tweet to elasticsearch")
             # add twitter data and sentiment info to elasticsearch
             es.index(index=self.index_name,

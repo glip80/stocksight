@@ -29,9 +29,9 @@ class YahooFinanceListener(NewsHeadlineListener):
             html = soup.findAll('h3')
 
             if html:
-                for rawArticle in html:
+                for raw_article in html:
 
-                    article = self.get_article_with_atag(rawArticle, parsed_uri)
+                    article = self.get_article_with_atag(raw_article, parsed_uri)
                     if self.can_process(article):
                         if config['news']['follow_link']:
                             body_url = article.url

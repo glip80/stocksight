@@ -18,6 +18,8 @@ import threading
 from StockSight.YahooFinanceListener import *
 from StockSight.SeekAlphaListener import *
 from StockSight.EsMap.Sentiment import *
+from base import Symbol
+
 
 
 STOCKSIGHT_VERSION = '0.2'
@@ -27,12 +29,13 @@ __version__ = STOCKSIGHT_VERSION
 if __name__ == '__main__':
 
     try:
-        for symbol in config['symbols']:
+        
+        for symbol in Symbol.objects.values_list('name', flat=True):
             try:
                 logger.info('Creating new Sentiment index or using existing ' + symbol)
                 es.indices.create(index=config['elasticsearch']['table_prefix']['sentiment']+symbol.lower(), body=mapping, ignore=[400, 404])
 
-                logger.info('NLTK tokens required: ' + str(config['symbols'][symbol]))
+                # logger.info('NLTK tokens required: ' + str(config['symbols'][symbol]))
                 logger.info('NLTK tokens ignored: ' + str(config['sentiment_analyzer']['ignore_words']))
 
                 yahoo_listener = YahooFinanceListener(symbol)

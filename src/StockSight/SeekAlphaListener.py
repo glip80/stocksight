@@ -15,11 +15,12 @@ LICENSE for the full license text.
 """
 
 from StockSight.NewsHeadlineListener import *
+import dateparser
 
 class SeekAlphaListener(NewsHeadlineListener):
     def __init__(self, symbol):
         super(SeekAlphaListener, self)\
-            .__init__("Seek Alpha", symbol, "https://seekingalpha.com/symbol/%s" % symbol)
+            .__init__("Seek Alpha", symbol, "https://seekingalpha.com/symbol/%s" % symbol.upper(), True)
 
     def get_news_headlines(self):
 
@@ -29,33 +30,23 @@ class SeekAlphaListener(NewsHeadlineListener):
 
         try:
             soup = self.get_soup(self.url)
-            analysis = soup.select('div.analysis div.symbol_article')
-            news = soup.select('div.news div.symbol_article')
+            # articles_data = soup.select('h3[data-test-id="post-list-item-title"]')
+            articles_data = soup.select('article[data-test-id="post-list-item"]')
 
-            if analysis:
-
-                for rawArticle in analysis:
-                    article = self.get_article_with_atag(rawArticle, parsed_uri)
+            if articles_data:
+                for raw_article in articles_data:
+                    article = self.get_article_with_atag(raw_article.find('h3'), parsed_uri)
                     if self.can_process(article):
+                        if config['news']['follow_link']:
+                            body_url = article.url
+                            for p in self.get_page_text(body_url, 'p'):
+                                article.body += str(p)+" "
 
-                        # if config['news']['follow_link']:
-                        #     body_url = article.url
-                        #     for p in self.get_page_text(body_url, 'p.bullets_li'):
-                        #         article.body += str(p)+" "
+                        author, author_url, publish_date = self.get_metadata(raw_article, parsed_uri)
 
-                        article.referer_url = self.url
-                        articles.append(article)
-
-            if news:
-                for rawArticle in news:
-                    article = self.get_article_with_atag(rawArticle, parsed_uri)
-                    if self.can_process(article):
-
-                        # if config['news']['follow_link']:
-                        #     body_url = article.url
-                        #     for p in self.get_page_text(body_url, 'div.a-sum p'):
-                        #         article.body += str(p)+" "
-
+                        article.published_at = publish_date
+                        article.author = author
+                        article.author_url = author_url
                         article.referer_url = self.url
                         articles.append(article)
 
@@ -64,6 +55,42 @@ class SeekAlphaListener(NewsHeadlineListener):
             pass
 
         return articles
+
+    def get_page_text(self, url, selector):
+        max_paragraphs = 10
+        try:
+            soup = self.get_soup(url)
+            html_p = soup.findAll(selector)
+
+            if html_p:
+                n = 1
+                for i in html_p:
+                    if n <= max_paragraphs:
+                        if i.text is not None:
+                            yield i.text
+                    else:
+                        break
+                    n += 1
+
+        except requests.exceptions.RequestException as re:
+            logger.warning("Exception: can't crawl web site (%s)" % re)
+            pass
+
+    def get_metadata(self, raw_article, parsed_uri):
+        # import pdb; pdb.set_trace()
+        author_tag = raw_article.select_one('[data-test-id="post-list-author"]')
+        date_tag = raw_article.select_one('[data-test-id="post-list-date"]')
+        author_link = author_tag.get('href')
+
+        author_url = ''
+        if author_link is not None:
+            author_url = self.get_proper_new_body_url(author_link, parsed_uri)
+
+        return (
+                str(author_tag.text),
+                author_url,
+                dateparser.parse(date_tag.text)
+            )
 
     def get_page_text(self, url, selector):
         try:

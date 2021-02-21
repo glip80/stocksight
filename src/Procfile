@@ -1,0 +1,2 @@
+web: python -c "import nltk; nltk.download('punkt')" && gunicorn base
+worker: ./startup.sh

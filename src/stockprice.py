@@ -20,7 +20,7 @@ from StockSight.Initializer.ElasticSearch import es
 from StockSight.Initializer.Logger import *
 from StockSight.EsMap.StockPrice import mapping
 from StockSight.StockPriceListener import StockPriceListener
-
+from base import Symbol, SymbolAlias, TwitterUser
 
 STOCKSIGHT_VERSION = '0.2'
 __version__ = STOCKSIGHT_VERSION
@@ -29,7 +29,7 @@ __version__ = STOCKSIGHT_VERSION
 if __name__ == '__main__':
 
     try:
-        for symbol in config['symbols']:
+        for symbol in Symbol.objects.values_list('name', flat=True):
             try:
                 logger.info('Creating new Price index or using existing ' + symbol)
                 es.indices.create(index=config['elasticsearch']['table_prefix']['price']+symbol.lower(),
