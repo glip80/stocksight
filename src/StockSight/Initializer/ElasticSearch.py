@@ -10,7 +10,6 @@ LICENSE for the full license text.
 """
 
 from elasticsearch import Elasticsearch, RequestsHttpConnection
-from requests_aws4auth import AWS4Auth
 import os
 from settings import PRODUCTION_MODE
 
@@ -18,6 +17,9 @@ from StockSight.Initializer.ConfigReader import config
 
 
 if PRODUCTION_MODE:
+    from requests_aws4auth import AWS4Auth
+    import boto3
+
     region = os.getenv('AWS_REGION')
     service = 'es'
     credentials = boto3.Session().get_credentials()
