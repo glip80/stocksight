@@ -10,9 +10,26 @@ LICENSE for the full license text.
 """
 
 from elasticsearch import Elasticsearch, RequestsHttpConnection
+from requests_aws4auth import AWS4Auth
 import os
+from settings import PRODUCTION_MODE
 
 from StockSight.Initializer.ConfigReader import config
+
+
+if PRODUCTION_MODE:
+    region = os.getenv('AWS_REGION')
+    service = 'es'
+    credentials = boto3.Session().get_credentials()
+    http_auth = AWS4Auth(credentials.access_key, credentials.secret_key, region, service, session_token=credentials.token)
+    verify_certs = True
+else:
+    http_auth =(
+        os.getenv('ELASTICSEARCH_USER', config['elasticsearch']['user']),
+        os.getenv('ELASTICSEARCH_PASSWORD', config['elasticsearch']['password']),
+    )
+    verify_certs = False
+
 
 # create instance of elasticsearch
 es = Elasticsearch(
@@ -20,11 +37,9 @@ es = Elasticsearch(
         'host': os.getenv('ELASTICSEARCH_HOST', config['elasticsearch']['host']),
         'port': os.getenv('ELASTICSEARCH_PORT', config['elasticsearch']['port'])
         }],
-    http_auth=(
-        os.getenv('ELASTICSEARCH_USER', config['elasticsearch']['user']),
-        os.getenv('ELASTICSEARCH_PASSWORD', config['elasticsearch']['password']),
-        ),
+    http_auth= http_auth,
     scheme=os.getenv('ELASTICSEARCH_SCHEME', config['elasticsearch']['scheme']),
-    verify_certs=False,
-    # connection_class=RequestsHttpConnection
+    use_ssl = True,
+    verify_certs = verify_certs,
+    connection_class=RequestsHttpConnection
     )
