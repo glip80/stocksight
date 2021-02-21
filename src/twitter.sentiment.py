@@ -12,7 +12,7 @@ LICENSE for the full license text.
 """
 
 import argparse
-import sys, time
+import sys, time, os
 from random import randint
 
 from StockSight.TweetListener import *
@@ -33,10 +33,10 @@ def fetch_status_from_redis(pipe):
 
 # r.transaction(fetch_status_from_redis, *['tweepy:new_record_added'])
 if __name__ == '__main__':
-    consumer_key = config['twitter']['consumer_key']
-    consumer_secret = config['twitter']['consumer_secret']
-    access_token = config['twitter']['access_token']
-    access_token_secret = config['twitter']['access_token_secret']
+    consumer_key = os.getenv('TWITTER_CONSUMER_KEY', config['twitter']['consumer_key'])
+    consumer_secret = os.getenv('TWITTER_CONSUMER_SECRET', config['twitter']['consumer_secret'])
+    access_token = os.getenv('TWITTER_ACCESS_TOKEN', config['twitter']['access_token'])
+    access_token_secret = os.getenv('TWITTER_ACCESS_TOKEN_SECRET', config['twitter']['access_token_secret'])
     
 
     if not consumer_key or \

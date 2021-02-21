@@ -68,6 +68,7 @@ ROOT_URLCONF = 'urls'
 
 DEBUG = True
 
+BASE_DIR = PROJECT_ROOT
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(PROJECT_ROOT, 'static')
 
