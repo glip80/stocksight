@@ -1,6 +1,6 @@
 #! /bin/sh
 
-apk --no-cache add curl chromium alpine-sdk
+apk --no-cache add curl chromium  alpine-sdk
 
 pip install --no-cache-dir -r requirements.txt
 
