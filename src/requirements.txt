@@ -18,3 +18,5 @@ django-pg-bulk-update
 dj-database-url
 gunicorn
 django-heroku
+boto3
+requests-aws4auth
