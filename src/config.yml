@@ -9,16 +9,18 @@ elasticsearch:
     price     : stocksight_price_
 
 kibana:
-  host: kibana
-  port: 5601
-  user: admin
-  password: admin
-  scheme: http
+  host        : kibana
+  port        : 5601
+  user        : admin
+  password    : admin
+  scheme      : http
+  mount_path  :
 
 redis:
   host      : redis
   port      : 6379
   db        : 0
+  password  :
 
 sentiment_analyzer:
   ignore_words:
