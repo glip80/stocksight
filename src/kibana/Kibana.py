@@ -11,8 +11,11 @@ class Client(object):
         self.scheme = scheme or 'http'
         self.verify_certs = verify_certs
         self.mount_path = mount_path 
-        if (mount_path is not None) and not mount_path.startswith('/'):
-            self.mount_path = "/{}".format(mount_path)
+        if mount_path is None:
+            self.mount_path = ''
+        else:
+            if not mount_path.startswith('/'):
+                self.mount_path = "/{}".format(mount_path)
 
     def import_saved_objects(self, file, payload):
         headers = {'kbn-xsrf': 'true'}
@@ -30,4 +33,4 @@ class Client(object):
         return post
 
     def get_path(self, url_path):
-        return "%s://%s:%s/%s" % (self.scheme, self.host, self.port, self.mount_path, url_path)
+        return "%s://%s:%s%s/%s" % (self.scheme, self.host, self.port, self.mount_path, url_path)
