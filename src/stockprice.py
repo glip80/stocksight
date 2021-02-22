@@ -32,7 +32,7 @@ if __name__ == '__main__':
         for symbol in Symbol.objects.values_list('name', flat=True):
             try:
                 logger.info('Creating new Price index or using existing ' + symbol)
-                es.indices.create(index=config['elasticsearch']['table_prefix']['price']+symbol.lower(),
+                es.indices.create(index=config.elasticsearch['table_prefix']['price']+symbol.lower(),
                                   body=mapping, ignore=[400, 404])
 
                 stockprice = StockPriceListener()
@@ -40,8 +40,8 @@ if __name__ == '__main__':
                 price_thread = threading.Thread(target=stockprice.get_price,args=(symbol,))
                 price_thread.start()
 
-                if(config['spawn_intervals']['stockprice_min'] > 0):
-                    time.sleep(randint(config['spawn_intervals']['stockprice_min'], config['spawn_intervals']['stockprice_max']))
+                if(config.spawn_intervals['stockprice_min'] > 0):
+                    time.sleep(randint(config.spawn_intervals['stockprice_min'], config.spawn_intervals['stockprice_max']))
 
             except Exception as e:
                 logger.warning("%s" % e)

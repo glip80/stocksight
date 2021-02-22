@@ -19,9 +19,10 @@ class Client(object):
 
     def import_saved_objects(self, file, payload):
         headers = {'kbn-xsrf': 'true'}
+        kibana_path = self.get_path(self.IMPORT_SAVED_OBJECTS_PATH)
         post = requests.request(
             'POST', 
-            self.get_path(self.IMPORT_SAVED_OBJECTS_PATH),
+            kibana_path,
             params=payload,
             headers=headers,
             auth=self.http_auth,

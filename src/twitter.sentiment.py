@@ -33,10 +33,10 @@ def fetch_status_from_redis(pipe):
 
 # r.transaction(fetch_status_from_redis, *['tweepy:new_record_added'])
 if __name__ == '__main__':
-    consumer_key = os.getenv('TWITTER_CONSUMER_KEY', config['twitter']['consumer_key'])
-    consumer_secret = os.getenv('TWITTER_CONSUMER_SECRET', config['twitter']['consumer_secret'])
-    access_token = os.getenv('TWITTER_ACCESS_TOKEN', config['twitter']['access_token'])
-    access_token_secret = os.getenv('TWITTER_ACCESS_TOKEN_SECRET', config['twitter']['access_token_secret'])
+    consumer_key = os.getenv('TWITTER_CONSUMER_KEY', config.twitter['consumer_key'])
+    consumer_secret = os.getenv('TWITTER_CONSUMER_SECRET', config.twitter['consumer_secret'])
+    access_token = os.getenv('TWITTER_ACCESS_TOKEN', config.twitter['access_token'])
+    access_token_secret = os.getenv('TWITTER_ACCESS_TOKEN_SECRET', config.twitter['access_token_secret'])
     
 
     if not consumer_key or \
@@ -59,7 +59,7 @@ if __name__ == '__main__':
         while True:
             for symbol in Symbol.objects.values_list('name', flat=True):
                 logger.info('Creating new Elasticsearch index or using existing ' + symbol)
-                es.indices.create(index=config['elasticsearch']['table_prefix']['sentiment']+symbol.lower(), body=mapping, ignore=[400, 404])
+                es.indices.create(index=config.elasticsearch['table_prefix']['sentiment']+symbol.lower(), body=mapping, ignore=[400, 404])
 
 
             twitter_feeds = TwitterUser.objects.filter(user_id__isnull=True)
@@ -88,8 +88,8 @@ if __name__ == '__main__':
                     break
 
             # search twitter for keywords
-            logger.info('NLTK tokens required: ' + str(config['symbols']))
-            logger.info('NLTK tokens ignored: ' + str(config['sentiment_analyzer']['ignore_words']))
+            logger.info('NLTK tokens required: ' + str(config.symbols))
+            logger.info('NLTK tokens ignored: ' + str(config.sentiment_analyzer['ignore_words']))
             logger.info('Listening for Tweets (ctrl-c to exit)...')
 
             user_id_list = TwitterUser.objects.values_list('user_id', flat=True)

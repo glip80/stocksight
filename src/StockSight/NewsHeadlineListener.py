@@ -38,7 +38,7 @@ class NewsHeadlineListener(ABC):
         self.type = news_type
         self.cache_length = 2628000
         self.use_browser = use_browser
-        self.index_name = config['elasticsearch']['table_prefix']['sentiment']+self.symbol.name.lower()
+        self.index_name = config.elasticsearch['table_prefix']['sentiment']+self.symbol.name.lower()
 
     def execute(self):
         logger.info("Scraping news for %s from %s... Start" % (self.symbol.name, self.type))
@@ -47,7 +47,7 @@ class NewsHeadlineListener(ABC):
         # add any new headlines
         for article_obj in articles:
 
-            if rds.exists(article_obj.msg_id) is 0:
+            if rds.exists(article_obj.msg_id) == 0:
 
                 published_at = article_obj.published_at.isoformat()
                 # output news data
@@ -63,7 +63,7 @@ class NewsHeadlineListener(ABC):
                 print("NLTK Tokens: " + str(tokens))
 
                 # check ignored tokens from config
-                for t in config['sentiment_analyzer']['ignore_words']:
+                for t in config.sentiment_analyzer['ignore_words']:
                     if t in tokens:
                         logger.info("Text contains token from ignore list, not adding")
                         rds.set(article_obj.msg_id, 1, self.cache_length)
@@ -136,12 +136,12 @@ class NewsHeadlineListener(ABC):
         return news_url
 
     def can_process(self, article):
-        return article is not None and rds.exists(article.msg_id) is 0
+        return article is not None and rds.exists(article.msg_id) == 0
 
     def get_soup(self, url):
         #try not to spam the server, but if you run with 100 stock symbols, it's probably going to spam it anyway lol.
-        if(config['spawn_intervals']['request_min'] > 0):
-            time.sleep(randint(config['spawn_intervals']['request_min'], config['spawn_intervals']['request_max']))
+        if(config.spawn_intervals['request_min'] > 0):
+            time.sleep(randint(config.spawn_intervals['request_min'], config.spawn_intervals['request_max']))
 
         html = self.get_text(url)
         soup = BeautifulSoup(html, 'html.parser')

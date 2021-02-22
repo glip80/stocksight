@@ -2,8 +2,13 @@ import os
 # settings.py
 
 PRODUCTION_MODE=os.getenv('APP_ENV', 'development') == 'production'
-if PRODUCTION_MODE:
+ON_HEROKU = os.getenv('HEROKU_APP') is not None
+USES_DATABASE_URL = os.getenv('DATABASE_URL') is not None
+
+if ON_HEROKU:
     import django_heroku
+
+if USES_DATABASE_URL:
     import dj_database_url
     DATABASES = {
         'default': dj_database_url.config()
@@ -74,5 +79,25 @@ STATIC_ROOT = os.path.join(PROJECT_ROOT, 'static')
 
 SECRET_KEY = 'REPLACE_ME'
 
-if PRODUCTION_MODE:
+# Place in your settings.py file, near the bottom
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'my_log_handler': {
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'django.log'),
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['my_log_handler'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': True,
+        },
+    },
+}
+
+if ON_HEROKU:
     django_heroku.settings(locals())

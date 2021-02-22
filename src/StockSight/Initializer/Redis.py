@@ -13,8 +13,8 @@ import os
 from StockSight.Initializer.ConfigReader import config
 
 rds = redis.Redis(
-    host=str(os.getenv('REDIS_HOST', config['redis']['host'])),
-    port=os.getenv('REDIS_PORT', config['redis']['port']),
-    db=os.getenv('REDIS_DB', config['redis']['db']),
-    password=os.getenv('REDIS_PASSWORD', config['redis']['password'])
+    host=str(config.redis['host']),
+    port=config.redis['port'],
+    db=config.redis['db'],
+    password=config.redis['password']
 )

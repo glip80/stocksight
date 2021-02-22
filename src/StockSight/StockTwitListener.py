@@ -26,7 +26,7 @@ class StockTwitListener(object):
         logger.info("Scraping price for %s from StockTwit ..." % symbol)
 
         if self.index_name is None:
-            self.index_name = config['elasticsearch']['table_prefix']['price']+symbol.lower()
+            self.index_name = config.elasticsearch['table_prefix']['price']+symbol.lower()
 
         # url = "https://api.stocktwits.com/api/2/streams/symbol/SYMBOL.json"
 
@@ -94,7 +94,7 @@ class StockTwitListener(object):
 
                 # do some checks before adding to elasticsearch and crawling urls in tweet
                 # if friends == 0 or \
-                # followers < config['twitter']['min_followers'] or \
+                # followers < config.twitter['min_followers'] or \
                 # statuses == 0 or \
                 # text == "":
                 #     logger.info("Tweet doesn't meet min requirements, not adding")
@@ -111,7 +111,7 @@ class StockTwitListener(object):
                 if should_halt_processing:
                     continue
                                 # check ignored tokens from config
-                for t in config['sentiment_analyzer']['ignore_words']:
+                for t in config.sentiment_analyzer['ignore_words']:
                     if t in tokens:
                         logger.info("Twit contains token from ignore list, not adding")
                         should_halt_processing=True
@@ -127,7 +127,7 @@ class StockTwitListener(object):
                 # get sentiment values
                 polarity, subjectivity, sentiment = sentiment_analysis(msg)
 
-                self.index_name = config['elasticsearch']['table_prefix']['sentiment']+symbol.lower()
+                self.index_name = config.elasticsearch['table_prefix']['sentiment']+symbol.lower()
                 logger.info("Adding twit to elasticsearch")
                 # add twitter data and sentiment info to elasticsearch
                 es.index(index=self.index_name,

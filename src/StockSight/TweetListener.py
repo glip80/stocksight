@@ -97,7 +97,7 @@ class TweetStreamListener(StreamListener):
 
             # do some checks before adding to elasticsearch and crawling urls in tweet
             if friends == 0 or \
-               followers < config['twitter']['min_followers'] or \
+               followers < config.twitter['min_followers'] or \
                statuses == 0 or \
                text == "":
                 logger.info("Tweet doesn't meet min requirements, not adding")
@@ -109,7 +109,7 @@ class TweetStreamListener(StreamListener):
                 return True
 
             # check ignored tokens from config
-            for t in config['sentiment_analyzer']['ignore_words']:
+            for t in config.sentiment_analyzer['ignore_words']:
                 if t in tokens:
                     logger.info("Tweet contains token from ignore list, not adding")
                     return True
@@ -131,7 +131,7 @@ class TweetStreamListener(StreamListener):
             # remove hashtags for elasticsearch
             # text_filtered = re.sub(r"[#|@|\$]\S+", "", text_filtered)
 
-            self.index_name = config['elasticsearch']['table_prefix']['sentiment']+self.symbol.name.lower()
+            self.index_name = config.elasticsearch['table_prefix']['sentiment']+self.symbol.name.lower()
             logger.info("Adding tweet to elasticsearch")
             # add twitter data and sentiment info to elasticsearch
             es.index(index=self.index_name,

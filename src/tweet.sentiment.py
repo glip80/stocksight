@@ -27,11 +27,11 @@ __version__ = STOCKSIGHT_VERSION
 if __name__ == '__main__':
 
 
-    consumer_key = config['twitter']['consumer_key']
-    consumer_secret = config['twitter']['consumer_secret']
-    access_token = config['twitter']['access_token']
-    access_token_secret = config['twitter']['access_token_secret']
-    twitter_feeds = config['twitter']['feeds']
+    consumer_key = config.twitter['consumer_key']
+    consumer_secret = config.twitter['consumer_secret']
+    access_token = config.twitter['access_token']
+    access_token_secret = config.twitter['access_token_secret']
+    twitter_feeds = config.twitter['feeds']
 
     if not consumer_key or \
        not consumer_secret or \
@@ -41,7 +41,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     try:
-        for symbol in config['twitter']:
+        for symbol in config.twitter:
             logger.info('Creating new Elasticsearch index or using existing ' + symbol)
             es.indices.create(index="stocksight_"+symbol+"_sentiment", body=mapping, ignore=[400, 404])
 
@@ -101,8 +101,8 @@ if __name__ == '__main__':
                     raise
 
         # search twitter for keywords
-        logger.info('NLTK tokens required: ' + str(config['symbols']))
-        logger.info('NLTK tokens ignored: ' + str(config['sentiment_analyzer']['ignore_words']))
+        logger.info('NLTK tokens required: ' + str(config.symbols))
+        logger.info('NLTK tokens ignored: ' + str(config.sentiment_analyzer['ignore_words']))
         logger.info('Twitter Feeds: ' + str(twitter_feeds))
         logger.info('Twitter User Ids: ' + str(useridlist))
         logger.info('Listening for Tweets (ctrl-c to exit)...')

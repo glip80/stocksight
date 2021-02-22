@@ -11,10 +11,10 @@ def migrate_default_symbols(apps, schema_editor):
     Symbol = apps.get_model('data', 'Symbol')
     SymbolAlias = apps.get_model('data', 'SymbolAlias')
     
-    for sym in config['symbols']:
+    for sym in config.symbols:
         symbol = Symbol.objects.create(name=sym)
         
-        for alias in config['symbols'][sym]:
+        for alias in config.symbols[sym]:
             SymbolAlias.objects.create(symbol=symbol, name=alias)
             # symbol.symbol_aliases.create(symbol=symbol, name=alias)
 
@@ -24,7 +24,7 @@ def migrate_default_symbol_twitter_users(apps, schema_editor):
     version than this migration expects. We use the historical version.
     '''
     TwitterUser = apps.get_model('data', 'TwitterUser')
-    for username in config['twitter']['feeds']:
+    for username in config.twitter['feeds']:
         TwitterUser.objects.create(username=username)
 
 
@@ -44,7 +44,7 @@ class Migration(migrations.Migration):
 
         # symbol = Symbol.objects.create(name=sym)
         
-        # for alias in config['symbols'][sym]:
+        # for alias in config.symbols[sym]:
         #     symbol.symbol_alias_set.create(symbol=symbol, name=alias)
 
 

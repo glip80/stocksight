@@ -33,7 +33,7 @@ class YahooFinanceListener(NewsHeadlineListener):
 
                     article = self.get_article_with_atag(raw_article, parsed_uri)
                     if self.can_process(article):
-                        if config['news']['follow_link']:
+                        if config.news['follow_link']:
                             body_url = article.url
                             for p in self.get_page_text(body_url, 'p'):
                                 article.body += str(p)+" "

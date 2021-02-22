@@ -33,10 +33,10 @@ if __name__ == '__main__':
         for symbol in Symbol.objects.values_list('name', flat=True):
             try:
                 logger.info('Creating new Sentiment index or using existing ' + symbol)
-                es.indices.create(index=config['elasticsearch']['table_prefix']['sentiment']+symbol.lower(), body=mapping, ignore=[400, 404])
+                es.indices.create(index=config.elasticsearch['table_prefix']['sentiment']+symbol.lower(), body=mapping, ignore=[400, 404])
 
-                # logger.info('NLTK tokens required: ' + str(config['symbols'][symbol]))
-                logger.info('NLTK tokens ignored: ' + str(config['sentiment_analyzer']['ignore_words']))
+                # logger.info('NLTK tokens required: ' + str(config.symbols[symbol]))
+                logger.info('NLTK tokens ignored: ' + str(config.sentiment_analyzer['ignore_words']))
 
                 yahoo_listener = YahooFinanceListener(symbol)
                 yahoo_thread = threading.Thread(target=yahoo_listener.execute)
@@ -46,8 +46,8 @@ if __name__ == '__main__':
                 seekalpha_thread = threading.Thread(target=seekalpha_listener.execute)
                 seekalpha_thread.start()
 
-                if(config['spawn_intervals']['news_min'] > 0):
-                    time.sleep(randint(config['spawn_intervals']['news_min'], config['spawn_intervals']['news_max']))
+                if(config.spawn_intervals['news_min'] > 0):
+                    time.sleep(randint(config.spawn_intervals['news_min'], config.spawn_intervals['news_max']))
             except Exception as e:
                 logger.warning("%s" % e)
                 pass

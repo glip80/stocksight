@@ -32,13 +32,13 @@ class StockPriceListener:
         logger.info("Scraping price for %s from Yahoo Finance ..." % symbol)
 
         if self.index_name is None:
-            self.index_name = config['elasticsearch']['table_prefix']['price']+symbol.lower()
+            self.index_name = config.elasticsearch['table_prefix']['price']+symbol.lower()
 
         url = "https://query1.finance.yahoo.com/v8/finance/chart/SYMBOL?region=US&lang=en-US&includePrePost=false&interval=2m&range=2d&corsDomain=finance.yahoo.com&.tsrc=finance"
 
-        current_timezone = timezone(config['stock_price']['timezone_str'])
+        current_timezone = timezone(config.stock_price['timezone_str'])
 
-        if config['stock_price']['time_check'] and self.is_not_live(current_timezone):
+        if config.stock_price['time_check'] and self.is_not_live(current_timezone):
             today = datetime.datetime.now(current_timezone)
             logger.info("Stock market is not live. Current time: %s" % today.strftime("%Y-%m-%d %H:%M"))
             return self
@@ -132,8 +132,8 @@ class StockPriceListener:
 
     def is_not_live(self, current_timezone):
         today = datetime.datetime.now(current_timezone)
-        if config['stock_price']['weekday_start'] <= today.weekday() <= config['stock_price']['weekday_end'] and \
-            config['stock_price']['hour_start'] <= today.hour <= config['stock_price']['hour_end']:
+        if config.stock_price['weekday_start'] <= today.weekday() <= config.stock_price['weekday_end'] and \
+            config.stock_price['hour_start'] <= today.hour <= config.stock_price['hour_end']:
             return False
 
         return True

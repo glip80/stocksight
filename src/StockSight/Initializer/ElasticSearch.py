@@ -27,8 +27,8 @@ if PRODUCTION_MODE:
     verify_certs = True
 else:
     http_auth =(
-        os.getenv('ELASTICSEARCH_USER', config['elasticsearch']['user']),
-        os.getenv('ELASTICSEARCH_PASSWORD', config['elasticsearch']['password']),
+        config.elasticsearch['user'],
+        config.elasticsearch['password'],
     )
     verify_certs = False
 
@@ -36,11 +36,11 @@ else:
 # create instance of elasticsearch
 es = Elasticsearch(
     hosts=[{
-        'host': os.getenv('ELASTICSEARCH_HOST', config['elasticsearch']['host']),
-        'port': os.getenv('ELASTICSEARCH_PORT', config['elasticsearch']['port'])
+        'host': config.elasticsearch['host'],
+        'port': config.elasticsearch['port']
         }],
     http_auth= http_auth,
-    scheme=os.getenv('ELASTICSEARCH_SCHEME', config['elasticsearch']['scheme']),
+    scheme=config.elasticsearch['scheme'],
     use_ssl = True,
     verify_certs = verify_certs,
     connection_class=RequestsHttpConnection

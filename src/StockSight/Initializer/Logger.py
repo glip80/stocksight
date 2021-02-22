@@ -36,15 +36,15 @@ loglevel = logging.INFO
 logging.basicConfig(format=logformatter, level=loglevel)
 
 
-if config['console_output_mode'] is 'verbose':
+if config.console_output_mode == 'verbose':
     logger.setLevel(logging.INFO)
     eslogger.setLevel(logging.INFO)
     requestslogger.setLevel(logging.INFO)
-elif config['console_output_mode'] is 'debug':
+elif config.console_output_mode == 'debug':
     logger.setLevel(logging.DEBUG)
     eslogger.setLevel(logging.DEBUG)
     requestslogger.setLevel(logging.DEBUG)
-elif config['console_output_mode'] is 'quiet':
+elif config.console_output_mode == 'quiet':
     logger.disabled = True
     eslogger.disabled = True
     requestslogger.disabled = True
