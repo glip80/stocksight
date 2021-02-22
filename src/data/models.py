@@ -42,7 +42,7 @@ class ArticleAuthor(models.Model):
     objects = BulkUpdateManager()
 
     name = models.CharField(max_length=255)
-    url = models.CharField(max_length=255)
+    url = models.CharField(max_length=255, unique=True)
     source = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -68,12 +68,21 @@ class ArticleAuthor(models.Model):
 
             cls.objects.bulk_create([
                 author for author in author_records if author.url not in existing_records
-            ])
+            ], ignore_conflicts=True)
 
         return author_records
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        constraints = [
+            # For bar == null only
+            # models.UniqueConstraint(fields=['url'], name='unique__url__when__url_null_on_%(app_label)s_%(class)s',
+            #                         condition=models.Q(url__isnull=True)),
+            # For bar != null only
+            models.UniqueConstraint(fields=['url'], name='unique__url__when__url__not_null_on_%(app_label)s_%(class)s', condition=models.Q(url__isnull=False))
+        ]
 
 class AuthorSocial(models.Model):
     Medium = models.IntegerChoices('Medium', 'Twitter LinkedIn RSS Website')
@@ -100,6 +109,8 @@ class AuthorSocial(models.Model):
 admin.site.register(Symbol)
 admin.site.register(SymbolAlias)
 admin.site.register(TwitterUser)
+admin.site.register(ArticleAuthor)
+admin.site.register(AuthorSocial)
 # from django.db import models
 
 # class Musician(models.Model):
