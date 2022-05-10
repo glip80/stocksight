@@ -1,4 +1,4 @@
-elasticsearch=8.2.0
+elasticsearch==8.2.0
 requests
 nltk
 tweepy
