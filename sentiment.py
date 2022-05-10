@@ -25,7 +25,7 @@ try:
 except ImportError:
     import urlparse
 #from tweepy.streaming import StreamListener
-from tweepy import API, Stream, OAuthHandler, TweepException
+from tweepy import API, Stream, OAuthHandler, TweepyException
 from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from bs4 import BeautifulSoup
@@ -884,7 +884,7 @@ if __name__ == '__main__':
                         if uid not in useridlist:
                             useridlist.append(uid)
                         time.sleep(randrange(2, 5))
-                    except TweepException as te:
+                    except TweepyException as te:
                         # sleep a bit in case twitter suspends us
                         logger.warning("Tweepy exception: twitter api error caused by: %s" % te)
                         logger.info("Sleeping for a random amount of time and retrying...")
@@ -934,7 +934,7 @@ if __name__ == '__main__':
                 logger.info('Searching Twitter for keywords...')
                 logger.info('Twitter keywords: ' + str(keywords))
                 stream.filter(track=keywords, languages=['en'])
-        except TweepException as te:
+        except TweepyException as te:
             logger.debug("Tweepy Exception: Failed to get tweets caused by: %s" % te)
         except KeyboardInterrupt:
             print("Ctrl-c keyboard interrupt, exiting...")
