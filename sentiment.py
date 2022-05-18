@@ -737,8 +737,11 @@ if __name__ == '__main__':
         print(banner + '\n')
 
     # create instance of elasticsearch
-    es = Elasticsearch(hosts=[{'host': elasticsearch_host, 'port': elasticsearch_port}],
-                http_auth=(elasticsearch_user, elasticsearch_password))
+    es = Elasticsearch(
+        hosts=[{'host': elasticsearch_host, 'port': elasticsearch_port, 'scheme': 'https'}],
+        verify_certs=False,
+        http_auth=(elasticsearch_user, elasticsearch_password)
+        )
 
     # set up elasticsearch mappings and create index
     mappings = {
@@ -852,7 +855,8 @@ if __name__ == '__main__':
         api = API(auth)
 
         # create instance of the tweepy stream
-        stream = Stream(auth, tweetlistener)
+        #stream = Stream(auth, tweetlistener)
+        stream = Stream(consumer_key, consumer_secret, access_token, access_token_secret)
 
         # grab any twitter users from links in web page at url
         if args.url:
