@@ -13,6 +13,7 @@ LICENSE for the full license text.
 
 import sys
 import json
+import datetime
 import time
 import re
 import requests
@@ -24,8 +25,8 @@ try:
     import urllib.parse as urlparse
 except ImportError:
     import urlparse
-#from tweepy.streaming import StreamListener
-from tweepy import API, Stream, OAuthHandler, TweepyException
+import tweepy
+from tweepy import StreamingClient, StreamRule, Client
 from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from bs4 import BeautifulSoup
@@ -60,9 +61,10 @@ prev_time = time.time()
 sentiment_avg = [0.0,0.0,0.0]
 
 
-class TweetStreamListener(Stream):
+class TweetStreamingClient(StreamingClient):
 
-    def __init__(self):
+    def __init__(self,bearer_token):
+        super().__init__(bearer_token)
         self.count = 0
         self.count_filtered = 0
         self.filter_ratio = 0
@@ -70,15 +72,18 @@ class TweetStreamListener(Stream):
     # on success
     def on_data(self, data):
         try:
-            self.count+=1
-            # decode json
-            dict_data = json.loads(data)
 
-            print("\n------------------------------> (tweets: %s, filtered: %s, filter-ratio: %s)" \
-                % (self.count, self.count_filtered, str(round(self.count_filtered/self.count*100,2))+"%"))
+            if self.count>0:
+                print("\n------------------------------> (tweets: %s, filtered: %s, filter-ratio: %s)" \
+                    % (self.count, self.count_filtered, str(round(self.count_filtered/self.count*100,2))+"%"))
+
+            self.count+=1
+            # decode 
+            dict_data=json.loads(data)
+
             logger.debug('tweet data: ' + str(dict_data))
 
-            text = dict_data["text"]
+            text = dict_data["data"]["text"]
             if text is None:
                 logger.info("Tweet has no relevant text, skipping")
                 self.count_filtered+=1
@@ -99,19 +104,20 @@ class TweetStreamListener(Stream):
                 return True
 
             # get date when tweet was created
-            created_date = time.strftime(
-                '%Y-%m-%dT%H:%M:%S', time.strptime(dict_data['created_at'], '%a %b %d %H:%M:%S +0000 %Y'))
+            # created_date = time.strftime(
+            #     '%Y-%m-%dT%H:%M:%S', time.strptime(dict_data['created_at'], '%a %b %d %H:%M:%S +0000 %Y'))
+            created_date = dict_data["data"]['created_at']
 
             # store dict_data into vars
-            screen_name = str(dict_data.get("user", {}).get("screen_name"))
-            location = str(dict_data.get("user", {}).get("location"))
-            language = str(dict_data.get("user", {}).get("lang"))
-            friends = int(dict_data.get("user", {}).get("friends_count"))
-            followers = int(dict_data.get("user", {}).get("followers_count"))
-            statuses = int(dict_data.get("user", {}).get("statuses_count"))
+            screen_name = str(dict_data["includes"]["users"][0]["username"])
+            location = str(dict_data["includes"]["users"][0].get("location"))
+            language = "en"
+            friends = int(dict_data["includes"]["users"][0]["public_metrics"]["following_count"])
+            followers = int(dict_data["includes"]["users"][0]["public_metrics"]["followers_count"])
+            statuses = int(dict_data["includes"]["users"][0]["public_metrics"]["tweet_count"])
             text_filtered = str(textclean)
-            tweetid = int(dict_data.get("id"))
-            text_raw = str(dict_data.get("text"))
+            tweetid = int(dict_data["data"]["id"])
+            text_raw = str(dict_data["data"]["text"])
 
             # output twitter data
             print("\n<------------------------------")
@@ -195,7 +201,7 @@ class TweetStreamListener(Stream):
             polarity, subjectivity, sentiment = sentiment_analysis(text_clean)
 
             # add tweet_id to list
-            tweet_ids.append(dict_data["id"])
+            tweet_ids.append(dict_data["data"]["id"])
 
             # get sentiment for tweet 
             if len(tweet_urls) > 0:
@@ -225,7 +231,6 @@ class TweetStreamListener(Stream):
             logger.info("Adding tweet to elasticsearch")
             # add twitter data and sentiment info to elasticsearch
             es.index(index=args.index,
-                    doc_type="_doc",
                     body={"author": screen_name,
                         "type": "tweet",
                         "location": location,
@@ -239,6 +244,7 @@ class TweetStreamListener(Stream):
                         "polarity": polarity,
                         "subjectivity": subjectivity,
                         "sentiment": sentiment})
+
 
             # randomly sleep to stagger request time
             time.sleep(randrange(2,5))
@@ -846,17 +852,15 @@ if __name__ == '__main__':
             sys.exit(0)
 
     else:
-        # create instance of the tweepy tweet stream listener
-        tweetlistener = TweetStreamListener()
 
         # set twitter keys/tokens
-        auth = OAuthHandler(consumer_key, consumer_secret)
-        auth.set_access_token(access_token, access_token_secret)
-        api = API(auth)
+        # auth = OAuthHandler(consumer_key, consumer_secret)
+        # auth.set_access_token(access_token, access_token_secret)
+        client = Client(bearer_token)
 
         # create instance of the tweepy stream
         #stream = Stream(auth, tweetlistener)
-        stream = Stream(consumer_key, consumer_secret, access_token, access_token_secret)
+        stream = TweetStreamingClient(bearer_token)
 
         # grab any twitter users from links in web page at url
         if args.url:
@@ -883,8 +887,8 @@ if __name__ == '__main__':
                 for u in twitter_feeds:
                     try:
                         # get user id from screen name using twitter api
-                        user = api.get_user(screen_name=u)
-                        uid = str(user.id)
+                        user = client.get_user(username=u)
+                        uid = str(user.data.id)
                         if uid not in useridlist:
                             useridlist.append(uid)
                         time.sleep(randrange(2, 5))
@@ -922,11 +926,16 @@ if __name__ == '__main__':
             logger.info('NLTK tokens required: ' + str(nltk_tokens_required))
             logger.info('NLTK tokens ignored: ' + str(nltk_tokens_ignored))
             logger.info('Listening for Tweets (ctrl-c to exit)...')
+            rules=stream.get_rules()
+            if rules:
+                logger.info('Removing rules: '+str(rules))
+                stream.delete_rules([rule.id for rule in rules.data])
             if args.keywords is None:
                 logger.info('No keywords entered, following Twitter users...')
                 logger.info('Twitter Feeds: ' + str(twitter_feeds))
                 logger.info('Twitter User Ids: ' + str(useridlist))
-                stream.filter(follow=useridlist, languages=['en'])
+                stream.add_rules(StreamRule(value='('+' OR '.join(['from:'+ u for u in useridlist])+') lang:en -is:retweet -RT'))
+                stream.filter(tweet_fields="id,text,created_at,author_id",user_fields="username,location,public_metrics",expansions="author_id")
             else:
                 # keywords to search on twitter
                 # add keywords to list
@@ -937,7 +946,8 @@ if __name__ == '__main__':
                         keywords.append(f)
                 logger.info('Searching Twitter for keywords...')
                 logger.info('Twitter keywords: ' + str(keywords))
-                stream.filter(track=keywords, languages=['en'])
+                stream.add_rules(StreamRule(value='"'+'" "'.join(keywords)+'" lang:en -is:retweet -RT'))
+                stream.filter(tweet_fields="id,text,created_at,author_id",user_fields="username,location,public_metrics",expansions="author_id")
         except TweepyException as te:
             logger.debug("Tweepy Exception: Failed to get tweets caused by: %s" % te)
         except KeyboardInterrupt:
