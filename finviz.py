@@ -107,6 +107,7 @@ analyzer = SentimentIntensityAnalyzer()
 
 # New words and values
 new_words = {
+    'update': 30,
     'crushes': 10,
     'beats': 5,
     'misses': -5,
