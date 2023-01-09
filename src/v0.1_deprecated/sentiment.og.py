@@ -51,7 +51,7 @@ class GetStock:
                 # get stock data (json) from url
                 try:
                     r = requests.get(url,headers=headers,cookies=cookies)
-                    
+
                     data = r.json()
                 except (requests.HTTPError, requests.ConnectionError, requests.ConnectTimeout) as re:
                     logger.error("Exception: exception getting stock data from url caused by %s" % re)

@@ -1,0 +1,22 @@
+elasticsearch>=7.0.0,<8.0.0
+requests
+nltk
+tweepy
+beautifulsoup4
+textblob
+vaderSentiment
+pytz
+redis
+pyyaml
+fake-useragent
+Django
+pyppeteer
+pystocktwits @ https://github.com/khmurakami/pystocktwits/archive/master.zip
+dateparser
+psycopg2
+django-pg-bulk-update
+dj-database-url
+gunicorn
+django-heroku
+boto3
+requests-aws4auth

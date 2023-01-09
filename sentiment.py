@@ -203,7 +203,7 @@ class TweetStreamingClient(StreamingClient):
             # add tweet_id to list
             tweet_ids.append(dict_data["data"]["id"])
 
-            # get sentiment for tweet 
+            # get sentiment for tweet
             if len(tweet_urls) > 0:
                 tweet_urls_polarity = 0
                 tweet_urls_subjectivity = 0
@@ -226,7 +226,7 @@ class TweetStreamingClient(StreamingClient):
                     polarity = (polarity + tweet_urls_polarity) / 2
                 if tweet_urls_subjectivity > 0:
                     subjectivity = (subjectivity + tweet_urls_subjectivity) / 2
-            
+
 
             logger.info("Adding tweet to elasticsearch")
             # add twitter data and sentiment info to elasticsearch
@@ -581,7 +581,7 @@ def tweeklink_sentiment_analysis(url):
         summary_clean = clean_text_sentiment(summary_clean)
         print("Tweet link Clean Summary (sentiment): " + summary_clean)
         polarity, subjectivity, sentiment = sentiment_analysis(summary_clean)
-        
+
         return polarity, subjectivity, sentiment
 
     except ArticleException as e:
@@ -660,9 +660,9 @@ if __name__ == '__main__':
     parser.add_argument("--frequency", metavar="FREQUENCY", default=120, type=int,
                         help="How often in seconds to retrieve news headlines (default: 120 sec)")
     parser.add_argument("--followlinks", action="store_true",
-                        help="Follow links on news headlines and scrape relevant text from landing page") 
+                        help="Follow links on news headlines and scrape relevant text from landing page")
     parser.add_argument("-w", "--websentiment", action="store_true",
-                        help="Get sentiment results from text processing website")                  
+                        help="Get sentiment results from text processing website")
     parser.add_argument("--overridetokensreq", metavar="TOKEN", nargs="+",
                         help="Override nltk required tokens from config, separate with space")
     parser.add_argument("--overridetokensignore", metavar="TOKEN", nargs="+",
