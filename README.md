@@ -192,7 +192,16 @@ optional arguments:
   -q, --quiet           Run quiet with no message output
   -V, --version         Prints version and exits
   ```
-  
+
+## Forked sources
+|Repo                         |URL                                             |Stars|Forks|Ahead|Behind|Last Push |
+|-----------------------------|------------------------------------------------|-----|-----|-----|------|----------|
+|heyqule/stocksight           |https://github.com/heyqule/stocksight           |3    |3    |58   |73    |2019-10-16|
+|montshasta2020/stocksight    |https://github.com/montshasta2020/stocksight    |1    |0    |13   |3     |2021-08-31|
+|oreoluwa/stocksight          |https://github.com/oreoluwa/stocksight          |0    |0    |16   |0     |2021-02-22|
+|miranthajayatilake/stocksight|https://github.com/miranthajayatilake/stocksight|0    |0    |4    |1     |2021-11-16|
+|TheMagicTorch/stocksight     |https://github.com/TheMagicTorch/stocksight     |0    |0    |8    |0     |2022-05-23|
+|entrpn/stocksight            |https://github.com/entrpn/stocksight            |0    |0    |12   |114   |2019-08-14|
   
 ## Disclaimer
 

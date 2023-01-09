@@ -29,8 +29,9 @@ __version__ = STOCKSIGHT_VERSION
 url = "https://query1.finance.yahoo.com/v8/finance/chart/SYMBOL?region=US&lang=en-US&includePrePost=false&interval=2m&range=5d&corsDomain=finance.yahoo.com&.tsrc=finance"
 
 # create instance of elasticsearch
-es = Elasticsearch(hosts=[{'host': elasticsearch_host, 'port': elasticsearch_port}],
-                   http_auth=(elasticsearch_user, elasticsearch_password))
+es = Elasticsearch(hosts=[{'host': elasticsearch_host, 'port': elasticsearch_port, 'scheme': 'https'}],
+                            verify_certs=False,
+                            http_auth=(elasticsearch_user, elasticsearch_password))
 
 class GetStock:
 
@@ -45,9 +46,12 @@ class GetStock:
 
                 # add stock symbol to url
                 url = re.sub("SYMBOL", symbol, url)
+                headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.0.0 Safari/537.36'}
+                cookies = dict(GUC='AQEBAQFeMKBeOUIj0QUZ;')
                 # get stock data (json) from url
                 try:
-                    r = requests.get(url)
+                    r = requests.get(url,headers=headers,cookies=cookies)
+                    
                     data = r.json()
                 except (requests.HTTPError, requests.ConnectionError, requests.ConnectTimeout) as re:
                     logger.error("Exception: exception getting stock data from url caused by %s" % re)
@@ -89,8 +93,8 @@ class GetStock:
                     logger.info("Adding stock data to Elasticsearch...")
                     # add stock price info to elasticsearch
                     es.index(index=args.index,
-                             doc_type="stock",
                              body={"symbol": D['symbol'],
+                                   "type": "stock",
                                    "price_last": D['last'],
                                    "date": D['date'],
                                    "change": D['change'],
@@ -194,29 +198,28 @@ if __name__ == '__main__':
     # set up elasticsearch mappings and create index
     mappings = {
         "mappings": {
-            "stock": {
-                "properties": {
-                    "symbol": {
-                        "type": "keyword"
-                    },
-                    "price_last": {
-                        "type": "float"
-                    },
-                    "date": {
-                        "type": "date"
-                    },
-                    "change": {
-                        "type": "float"
-                    },
-                    "price_high": {
-                        "type": "float"
-                    },
-                    "price_low": {
-                        "type": "float"
-                    },
-                    "vol": {
-                        "type": "integer"
-                    }
+            "properties": {
+                "type": { "type": "keyword" },
+                "symbol": {
+                    "type": "keyword"
+                },
+                "price_last": {
+                    "type": "float"
+                },
+                "date": {
+                    "type": "date"
+                },
+                "change": {
+                    "type": "float"
+                },
+                "price_high": {
+                    "type": "float"
+                },
+                "price_low": {
+                    "type": "float"
+                },
+                "vol": {
+                    "type": "integer"
                 }
             }
         }
