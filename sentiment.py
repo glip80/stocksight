@@ -13,6 +13,7 @@ LICENSE for the full license text.
 
 import sys
 import json
+import datetime
 import time
 import re
 import requests
@@ -20,13 +21,12 @@ import nltk
 import argparse
 import logging
 import string
-
 try:
     import urllib.parse as urlparse
 except ImportError:
     import urlparse
-from tweepy.streaming import StreamListener
-from tweepy import API, Stream, OAuthHandler, TweepError
+import tweepy
+from tweepy import StreamingClient, StreamRule, Client
 from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from bs4 import BeautifulSoup
@@ -37,6 +37,7 @@ from newspaper import Article, ArticleException
 
 # import elasticsearch host, twitter keys and tokens
 from config import *
+
 
 STOCKSIGHT_VERSION = '0.1-b.12'
 __version__ = STOCKSIGHT_VERSION
@@ -57,12 +58,13 @@ tweet_ids = []
 twitter_users_file = './twitteruserids.txt'
 
 prev_time = time.time()
-sentiment_avg = [0.0, 0.0, 0.0]
+sentiment_avg = [0.0,0.0,0.0]
 
 
-class TweetStreamListener(StreamListener):
+class TweetStreamingClient(StreamingClient):
 
-    def __init__(self):
+    def __init__(self,bearer_token):
+        super().__init__(bearer_token)
         self.count = 0
         self.count_filtered = 0
         self.filter_ratio = 0
@@ -70,18 +72,21 @@ class TweetStreamListener(StreamListener):
     # on success
     def on_data(self, data):
         try:
-            self.count += 1
-            # decode json
-            dict_data = json.loads(data)
 
-            print("\n------------------------------> (tweets: %s, filtered: %s, filter-ratio: %s)" \
-                  % (self.count, self.count_filtered, str(round(self.count_filtered / self.count * 100, 2)) + "%"))
+            if self.count>0:
+                print("\n------------------------------> (tweets: %s, filtered: %s, filter-ratio: %s)" \
+                    % (self.count, self.count_filtered, str(round(self.count_filtered/self.count*100,2))+"%"))
+
+            self.count+=1
+            # decode
+            dict_data=json.loads(data)
+
             logger.debug('tweet data: ' + str(dict_data))
 
-            text = dict_data["text"]
+            text = dict_data["data"]["text"]
             if text is None:
                 logger.info("Tweet has no relevant text, skipping")
-                self.count_filtered += 1
+                self.count_filtered+=1
                 return True
 
             # grab html links from tweet
@@ -95,23 +100,24 @@ class TweetStreamListener(StreamListener):
             # check if tweet has no valid text
             if textclean == "":
                 logger.info("Tweet does not cotain any valid text after cleaning, not adding")
-                self.count_filtered += 1
+                self.count_filtered+=1
                 return True
 
             # get date when tweet was created
-            created_date = time.strftime(
-                '%Y-%m-%dT%H:%M:%S', time.strptime(dict_data['created_at'], '%a %b %d %H:%M:%S +0000 %Y'))
+            # created_date = time.strftime(
+            #     '%Y-%m-%dT%H:%M:%S', time.strptime(dict_data['created_at'], '%a %b %d %H:%M:%S +0000 %Y'))
+            created_date = dict_data["data"]['created_at']
 
             # store dict_data into vars
-            screen_name = str(dict_data.get("user", {}).get("screen_name"))
-            location = str(dict_data.get("user", {}).get("location"))
-            language = str(dict_data.get("user", {}).get("lang"))
-            friends = int(dict_data.get("user", {}).get("friends_count"))
-            followers = int(dict_data.get("user", {}).get("followers_count"))
-            statuses = int(dict_data.get("user", {}).get("statuses_count"))
+            screen_name = str(dict_data["includes"]["users"][0]["username"])
+            location = str(dict_data["includes"]["users"][0].get("location"))
+            language = "en"
+            friends = int(dict_data["includes"]["users"][0]["public_metrics"]["following_count"])
+            followers = int(dict_data["includes"]["users"][0]["public_metrics"]["followers_count"])
+            statuses = int(dict_data["includes"]["users"][0]["public_metrics"]["tweet_count"])
             text_filtered = str(textclean)
-            tweetid = int(dict_data.get("id"))
-            text_raw = str(dict_data.get("text"))
+            tweetid = int(dict_data["data"]["id"])
+            text_raw = str(dict_data["data"]["text"])
 
             # output twitter data
             print("\n<------------------------------")
@@ -147,24 +153,24 @@ class TweetStreamListener(StreamListener):
             # check for min token length
             if len(tokens) < 5:
                 logger.info("Tweet does not contain min. number of tokens, not adding")
-                self.count_filtered += 1
+                self.count_filtered+=1
                 return True
 
             # do some checks before adding to elasticsearch and crawling urls in tweet
             if friends == 0 or \
-                    followers == 0 or \
-                    statuses == 0 or \
-                    text == "" or \
-                    tweetid in tweet_ids:
+                            followers == 0 or \
+                            statuses == 0 or \
+                            text == "" or \
+                            tweetid in tweet_ids:
                 logger.info("Tweet doesn't meet min requirements, not adding")
-                self.count_filtered += 1
+                self.count_filtered+=1
                 return True
 
             # check ignored tokens from config
             for t in nltk_tokens_ignored:
                 if t in tokens:
                     logger.info("Tweet contains token from ignore list, not adding")
-                    self.count_filtered += 1
+                    self.count_filtered+=1
                     return True
             # check required tokens from config
             tokenspass = False
@@ -177,7 +183,7 @@ class TweetStreamListener(StreamListener):
                         break
             if not tokenspass:
                 logger.info("Tweet does not contain token from required list or min required, not adding")
-                self.count_filtered += 1
+                self.count_filtered+=1
                 return True
 
             # clean text for sentiment analysis
@@ -186,7 +192,7 @@ class TweetStreamListener(StreamListener):
             # check if tweet has no valid text
             if text_clean == "":
                 logger.info("Tweet does not cotain any valid text after cleaning, not adding")
-                self.count_filtered += 1
+                self.count_filtered+=1
                 return True
 
             print("Tweet Clean Text (sentiment): " + text_clean)
@@ -195,7 +201,7 @@ class TweetStreamListener(StreamListener):
             polarity, subjectivity, sentiment = sentiment_analysis(text_clean)
 
             # add tweet_id to list
-            tweet_ids.append(dict_data["id"])
+            tweet_ids.append(dict_data["data"]["id"])
 
             # get sentiment for tweet 
             if len(tweet_urls) > 0:
@@ -220,26 +226,28 @@ class TweetStreamListener(StreamListener):
                     polarity = (polarity + tweet_urls_polarity) / 2
                 if tweet_urls_subjectivity > 0:
                     subjectivity = (subjectivity + tweet_urls_subjectivity) / 2
+            
 
             logger.info("Adding tweet to elasticsearch")
             # add twitter data and sentiment info to elasticsearch
             es.index(index=args.index,
-                     doc_type="tweet",
-                     body={"author": screen_name,
-                           "location": location,
-                           "language": language,
-                           "friends": friends,
-                           "followers": followers,
-                           "statuses": statuses,
-                           "date": created_date,
-                           "message": text_filtered,
-                           "tweet_id": tweetid,
-                           "polarity": polarity,
-                           "subjectivity": subjectivity,
-                           "sentiment": sentiment})
+                    body={"author": screen_name,
+                        "type": "tweet",
+                        "location": location,
+                        "language": language,
+                        "friends": friends,
+                        "followers": followers,
+                        "statuses": statuses,
+                        "date": created_date,
+                        "message": text_filtered,
+                        "tweet_id": tweetid,
+                        "polarity": polarity,
+                        "subjectivity": subjectivity,
+                        "sentiment": sentiment})
+
 
             # randomly sleep to stagger request time
-            time.sleep(randrange(2, 5))
+            time.sleep(randrange(2,5))
             return True
 
         except Exception as e:
@@ -250,14 +258,14 @@ class TweetStreamListener(StreamListener):
     def on_error(self, status_code):
         logger.error("Got an error with status code: %s (will try again later)" % status_code)
         # randomly sleep to stagger request time
-        time.sleep(randrange(2, 30))
+        time.sleep(randrange(2,30))
         return True
 
     # on timeout
     def on_timeout(self):
         logger.warning("Timeout... (will try again later)")
         # randomly sleep to stagger request time
-        time.sleep(randrange(2, 30))
+        time.sleep(randrange(2,30))
         return True
 
 
@@ -279,34 +287,33 @@ class NewsHeadlineListener:
             for htext, htext_url in new_headlines:
                 if htext not in self.headlines:
                     self.headlines.append(htext)
-                    self.count += 1
+                    self.count+=1
 
                     datenow = datetime.utcnow().isoformat()
                     # output news data
                     print("\n------------------------------> (news headlines: %s, filtered: %s, filter-ratio: %s)" \
-                          % (
-                          self.count, self.count_filtered, str(round(self.count_filtered / self.count * 100, 2)) + "%"))
+                        % (self.count, self.count_filtered, str(round(self.count_filtered/self.count*100,2))+"%"))
                     print("Date: " + datenow)
-                    print("News Headline: " + str(htext))
+                    print("News Headline: " + htext)
                     print("Location (url): " + htext_url)
 
                     # create tokens of words in text using nltk
                     text_for_tokens = re.sub(
-                        r"[\%|\$|\.|\,|\!|\:|\@]|\(|\)|\#|\+|(``)|('')|\?|\-", "", str(htext))
+                        r"[\%|\$|\.|\,|\!|\:|\@]|\(|\)|\#|\+|(``)|('')|\?|\-", "", htext)
                     tokens = nltk.word_tokenize(text_for_tokens)
                     print("NLTK Tokens: " + str(tokens))
 
                     # check for min token length
                     if len(tokens) < 5:
                         logger.info("Text does not contain min. number of tokens, not adding")
-                        self.count_filtered += 1
+                        self.count_filtered+=1
                         continue
 
                     # check ignored tokens from config
                     for t in nltk_tokens_ignored:
                         if t in tokens:
                             logger.info("Text contains token from ignore list, not adding")
-                            self.count_filtered += 1
+                            self.count_filtered+=1
                             continue
                     # check required tokens from config
                     tokenspass = False
@@ -316,7 +323,7 @@ class NewsHeadlineListener:
                             break
                     if not tokenspass:
                         logger.info("Text does not contain token from required list, not adding")
-                        self.count_filtered += 1
+                        self.count_filtered+=1
                         continue
 
                     # get sentiment values
@@ -325,13 +332,14 @@ class NewsHeadlineListener:
                     logger.info("Adding news headline to elasticsearch")
                     # add news headline data and sentiment info to elasticsearch
                     es.index(index=args.index,
-                             doc_type="newsheadline",
-                             body={"date": datenow,
-                                   "location": htext_url,
-                                   "message": htext,
-                                   "polarity": polarity,
-                                   "subjectivity": subjectivity,
-                                   "sentiment": sentiment})
+                            doc_type="_doc",
+                            body={"date": datenow,
+                                  "type": "newsheadline",
+                                  "location": htext_url,
+                                  "message": htext,
+                                  "polarity": polarity,
+                                  "subjectivity": subjectivity,
+                                  "sentiment": sentiment})
 
             logger.info("Will get news headlines again in %s sec..." % self.frequency)
             time.sleep(self.frequency)
@@ -383,6 +391,7 @@ class NewsHeadlineListener:
 
 
 def get_page_text(url):
+
     max_paragraphs = 10
 
     try:
@@ -432,10 +441,10 @@ def get_sentiment_from_url(text, sentimentURL):
     payload = {'text': text}
 
     try:
-        # logger.debug(text)
+        #logger.debug(text)
         post = requests.post(sentimentURL, data=payload)
-        # logger.debug(post.status_code)
-        # logger.debug(post.text)
+        #logger.debug(post.status_code)
+        #logger.debug(post.text)
     except requests.exceptions.RequestException as re:
         logger.error("Exception: requests exception getting sentiment from url caused by %s" % re)
         raise
@@ -519,9 +528,9 @@ def sentiment_analysis(text):
     print("Sentiment (algorithm): " + str(sentiment))
     print("Overall sentiment (textblob): ", text_tb.sentiment)
     print("Overall sentiment (vader): ", text_vs)
-    print("sentence was rated as ", round(text_vs['neg'] * 100, 3), "% Negative")
-    print("sentence was rated as ", round(text_vs['neu'] * 100, 3), "% Neutral")
-    print("sentence was rated as ", round(text_vs['pos'] * 100, 3), "% Positive")
+    print("sentence was rated as ", round(text_vs['neg']*100, 3), "% Negative")
+    print("sentence was rated as ", round(text_vs['neu']*100, 3), "% Neutral")
+    print("sentence was rated as ", round(text_vs['pos']*100, 3), "% Positive")
     print("************")
 
     return polarity, text_tb.sentiment.subjectivity, sentiment
@@ -572,7 +581,7 @@ def tweeklink_sentiment_analysis(url):
         summary_clean = clean_text_sentiment(summary_clean)
         print("Tweet link Clean Summary (sentiment): " + summary_clean)
         polarity, subjectivity, sentiment = sentiment_analysis(summary_clean)
-
+        
         return polarity, subjectivity, sentiment
 
     except ArticleException as e:
@@ -651,15 +660,15 @@ if __name__ == '__main__':
     parser.add_argument("--frequency", metavar="FREQUENCY", default=120, type=int,
                         help="How often in seconds to retrieve news headlines (default: 120 sec)")
     parser.add_argument("--followlinks", action="store_true",
-                        help="Follow links on news headlines and scrape relevant text from landing page")
+                        help="Follow links on news headlines and scrape relevant text from landing page") 
     parser.add_argument("-w", "--websentiment", action="store_true",
-                        help="Get sentiment results from text processing website")
+                        help="Get sentiment results from text processing website")                  
     parser.add_argument("--overridetokensreq", metavar="TOKEN", nargs="+",
                         help="Override nltk required tokens from config, separate with space")
     parser.add_argument("--overridetokensignore", metavar="TOKEN", nargs="+",
                         help="Override nltk ignore tokens from config, separate with space")
     parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Increase output verbosity")
+                       help="Increase output verbosity")
     parser.add_argument("--debug", action="store_true",
                         help="Debug message output")
     parser.add_argument("-q", "--quiet", action="store_true",
@@ -734,118 +743,79 @@ if __name__ == '__main__':
         print(banner + '\n')
 
     # create instance of elasticsearch
-    es = Elasticsearch(hosts=[{'host': elasticsearch_host, 'port': elasticsearch_port}],
-                       http_auth=(elasticsearch_user, elasticsearch_password))
+    es = Elasticsearch(
+        hosts=[{'host': elasticsearch_host, 'port': elasticsearch_port, 'scheme': 'https'}],
+        verify_certs=False,
+        http_auth=(elasticsearch_user, elasticsearch_password)
+        )
 
     # set up elasticsearch mappings and create index
     mappings = {
         "mappings": {
-            "tweet": {
-                "properties": {
-                    "author": {
-                        "type": "string",
-                        "fields": {
-                            "keyword": {
-                                "type": "keyword"
-                            }
-                        }
-                    },
-                    "location": {
-                        "type": "string",
-                        "fields": {
-                            "keyword": {
-                                "type": "keyword"
-                            }
-                        }
-                    },
-                    "language": {
-                        "type": "string",
-                        "fields": {
-                            "keyword": {
-                                "type": "keyword"
-                            }
-                        }
-                    },
-                    "friends": {
-                        "type": "long"
-                    },
-                    "followers": {
-                        "type": "long"
-                    },
-                    "statuses": {
-                        "type": "long"
-                    },
-                    "date": {
-                        "type": "date"
-                    },
-                    "message": {
-                        "type": "string",
-                        "fields": {
-                            "english": {
-                                "type": "string",
-                                "analyzer": "english"
-                            },
-                            "keyword": {
-                                "type": "keyword"
-                            }
-                        }
-                    },
-                    "tweet_id": {
-                        "type": "long"
-                    },
-                    "polarity": {
-                        "type": "float"
-                    },
-                    "subjectivity": {
-                        "type": "float"
-                    },
-                    "sentiment": {
-                        "type": "string",
-                        "fields": {
-                            "keyword": {
-                                "type": "keyword"
-                            }
+            "properties": {
+                "type": { "type": "keyword" },
+                "author": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword"
                         }
                     }
-                }
-            },
-            "newsheadline": {
-                "properties": {
-                    "date": {
-                        "type": "date"
-                    },
-                    "location": {
-                        "type": "string",
-                        "fields": {
-                            "keyword": {
-                                "type": "keyword"
-                            }
+                },
+                "location": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword"
                         }
-                    },
-                    "message": {
-                        "type": "string",
-                        "fields": {
-                            "english": {
-                                "type": "string",
-                                "analyzer": "english"
-                            },
-                            "keyword": {
-                                "type": "keyword"
-                            }
+                    }
+                },
+                "language": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword"
                         }
-                    },
-                    "polarity": {
-                        "type": "float"
-                    },
-                    "subjectivity": {
-                        "type": "float"
-                    },
-                    "sentiment": {
-                        "type": "string",
-                        "fields": {
-                            "keyword": {
-                                "type": "keyword"
-                            }
+                    }
+                },
+                "friends": {
+                    "type": "long"
+                },
+                "followers": {
+                    "type": "long"
+                },
+                "statuses": {
+                    "type": "long"
+                },
+                "date": {
+                    "type": "date"
+                },
+                "message": {
+                    "type": "text",
+                    "fields": {
+                        "english": {
+                            "type": "text",
+                            "analyzer": "english"
+                        },
+                        "keyword": {
+                            "type": "keyword"
+                        }
+                    }
+                },
+                "tweet_id": {
+                    "type": "long"
+                },
+                "polarity": {
+                    "type": "float"
+                },
+                "subjectivity": {
+                    "type": "float"
+                },
+                "sentiment": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword"
                         }
                     }
                 }
@@ -882,16 +852,15 @@ if __name__ == '__main__':
             sys.exit(0)
 
     else:
-        # create instance of the tweepy tweet stream listener
-        tweetlistener = TweetStreamListener()
 
         # set twitter keys/tokens
-        auth = OAuthHandler(consumer_key, consumer_secret)
-        auth.set_access_token(access_token, access_token_secret)
-        api = API(auth)
+        # auth = OAuthHandler(consumer_key, consumer_secret)
+        # auth.set_access_token(access_token, access_token_secret)
+        client = Client(bearer_token)
 
         # create instance of the tweepy stream
-        stream = Stream(auth, tweetlistener)
+        #stream = Stream(auth, tweetlistener)
+        stream = TweetStreamingClient(bearer_token)
 
         # grab any twitter users from links in web page at url
         if args.url:
@@ -918,16 +887,16 @@ if __name__ == '__main__':
                 for u in twitter_feeds:
                     try:
                         # get user id from screen name using twitter api
-                        user = api.get_user(screen_name=u)
-                        uid = str(user.id)
+                        user = client.get_user(username=u)
+                        uid = str(user.data.id)
                         if uid not in useridlist:
                             useridlist.append(uid)
                         time.sleep(randrange(2, 5))
-                    except TweepError as te:
+                    except TweepyException as te:
                         # sleep a bit in case twitter suspends us
                         logger.warning("Tweepy exception: twitter api error caused by: %s" % te)
                         logger.info("Sleeping for a random amount of time and retrying...")
-                        time.sleep(randrange(2, 30))
+                        time.sleep(randrange(2,30))
                         continue
                     except KeyboardInterrupt:
                         logger.info("Ctrl-c keyboard interrupt, exiting...")
@@ -957,11 +926,16 @@ if __name__ == '__main__':
             logger.info('NLTK tokens required: ' + str(nltk_tokens_required))
             logger.info('NLTK tokens ignored: ' + str(nltk_tokens_ignored))
             logger.info('Listening for Tweets (ctrl-c to exit)...')
+            rules=stream.get_rules()
+            if rules:
+                logger.info('Removing rules: '+str(rules))
+                stream.delete_rules([rule.id for rule in rules.data])
             if args.keywords is None:
                 logger.info('No keywords entered, following Twitter users...')
                 logger.info('Twitter Feeds: ' + str(twitter_feeds))
                 logger.info('Twitter User Ids: ' + str(useridlist))
-                stream.filter(follow=useridlist, languages=['en'])
+                stream.add_rules(StreamRule(value='('+' OR '.join(['from:'+ u for u in useridlist])+') lang:en -is:retweet -RT'))
+                stream.filter(tweet_fields="id,text,created_at,author_id",user_fields="username,location,public_metrics",expansions="author_id")
             else:
                 # keywords to search on twitter
                 # add keywords to list
@@ -972,8 +946,9 @@ if __name__ == '__main__':
                         keywords.append(f)
                 logger.info('Searching Twitter for keywords...')
                 logger.info('Twitter keywords: ' + str(keywords))
-                stream.filter(track=keywords, languages=['en'])
-        except TweepError as te:
+                stream.add_rules(StreamRule(value='"'+'" "'.join(keywords)+'" lang:en -is:retweet -RT'))
+                stream.filter(tweet_fields="id,text,created_at,author_id",user_fields="username,location,public_metrics",expansions="author_id")
+        except TweepyException as te:
             logger.debug("Tweepy Exception: Failed to get tweets caused by: %s" % te)
         except KeyboardInterrupt:
             print("Ctrl-c keyboard interrupt, exiting...")
