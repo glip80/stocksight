@@ -1,0 +1,2 @@
+https://github.com/BabakBar/Stock-Sentiment-Analysis-Finviz/blob/main/Stock%20Sentiment.ipynb
+https://github.com/damianboh/stock_news_sentiment_analysis/blob/master/Sentiment%20Analysis%20of%20Financial%20News%20Headlines.ipynb
