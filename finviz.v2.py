@@ -1,3 +1,4 @@
+#https://github.com/jag-prabhakaran/genetic-algorithm-for-stock-prediction/blob/3f2505236b36d01edb30ae185791f2b89472e483/news_collection.py
 """
 This code takes news data from finviz.com from the last 5 days and then
 enters the data into a spreadsheet after summarizing and analyzing the data

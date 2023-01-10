@@ -1,6 +1,6 @@
 # https://github.com/BabakBar/Stock-Sentiment-Analysis-Finviz/blob/main/Stock%20Sentiment.ipynb
 # https://github.com/damianboh/stock_news_sentiment_analysis/blob/master/Sentiment%20Analysis%20of%20Financial%20News%20Headlines.ipynb
-#https://github.com/mkstar-2000/NFAGated/blob/master/pages/03_Sentiment_Analysis_From_FinViz.py
+# source https://github.com/mkstar-2000/NFAGated/blob/master/pages/03_Sentiment_Analysis_From_FinViz.py
 # run py -m streamlit run finviz.py
 
 # Dashboard
@@ -31,8 +31,9 @@ from wordcloud import WordCloud, STOPWORDS
 finwiz_url = 'https://finviz.com/quote.ashx?t='
 
 tickers = (
-'AXP', 'AMGN', 'AAPL', 'BA', 'CAT', 'CSCO', 'CVX', 'GS', 'HD', 'HON', 'IBM', 'INTC', 'JNJ', 'KO', 'JPM', 'MCD', 'MMM',
-'MRK', 'MSFT', 'NKE', 'PG', 'TRV', 'UNH', 'CRM', 'VZ', 'V', 'WBA', 'WMT', 'DIS', 'DOW')
+    'AXP', 'AMGN', 'AAPL', 'BA', 'CAT', 'CSCO', 'CVX', 'GS', 'HD', 'HON', 'IBM', 'INTC', 'JNJ', 'KO', 'JPM', 'MCD',
+    'MMM',
+    'MRK', 'MSFT', 'NKE', 'PG', 'TRV', 'UNH', 'CRM', 'VZ', 'V', 'WBA', 'WMT', 'DIS', 'DOW')
 tickers_dropdown = st.selectbox('Choose a stock ticker', tickers)
 
 # Initiate an empty dictionary to hold the news tables from website
@@ -61,28 +62,40 @@ stock_tr = stock.findAll('tr')
 
 # Create a list to append the titles
 title_list = []
+ingore_list = ['stock', 'stocks', 'prediction']
+
+
+def find_words(text_array, search):
+    """Find exact words"""
+    lower = search.lower()
+    for text in text_array:
+        if text in lower:
+            return True
+    return False
+
 
 # The enumerate() function takes a collection and returns it as an enumerate object.
 for index, table_row in enumerate(stock_tr):
     # Read the text of the element 'a' (Anchor tag) into 'title'
     title = table_row.a.text
-    # Read the text of the element 'td' into 'timestamp' for the timestamp
-    timestamp = table_row.td.text.split()
+    if not find_words(ingore_list, title):
+        # Read the text of the element 'td' into 'timestamp' for the timestamp
+        timestamp = table_row.td.text.split()
 
-    # if the length of 'timestamp' is 1, load 'time' as the only element
-    if len(timestamp) == 1:
-        time = timestamp[0]
+        # if the length of 'timestamp' is 1, load 'time' as the only element
+        if len(timestamp) == 1:
+            time = timestamp[0]
 
-    # else load 'date' as the 1st element and 'time' as the second
-    else:
-        date = timestamp[0]
-        time = timestamp[1]
-    ticker = tickers
+        # else load 'date' as the 1st element and 'time' as the second
+        else:
+            date = timestamp[0]
+            time = timestamp[1]
+        ticker = tickers
 
-    # Append the title and timestamp to list format.
-    title_list.append([tickers, date, time, title])
-    # Create a dataframe using the 'title_list'
-    finviz_headlines = pd.DataFrame(title_list, columns=[['ticker', 'date', 'time', 'title']])
+        # Append the title and timestamp to list format.
+        title_list.append([tickers, date, time, title])
+        # Create a dataframe using the 'title_list'
+        finviz_headlines = pd.DataFrame(title_list, columns=[['ticker', 'date', 'time', 'title']])
 
 st.subheader("Most recent 100 Headlines")
 st.write(finviz_headlines)
@@ -100,6 +113,7 @@ def get_sentiment(score):
         result = -1
 
     return result
+
 
 # Instantiate the sentiment intensity analyzer with the existing lexicon
 # Create the sentiment scores DataFrame
@@ -130,11 +144,12 @@ for index, row in finviz_headlines.iterrows():
     try:
         # Sentiment scoring with VADER
         title_sentiment = analyzer.polarity_scores(row["title"])
+        sentiment = get_sentiment(title_sentiment["compound"])
         title_sent["title_compound"].append(title_sentiment["compound"])
         title_sent["title_pos"].append(title_sentiment["pos"])
         title_sent["title_neu"].append(title_sentiment["neu"])
         title_sent["title_neg"].append(title_sentiment["neg"])
-        title_sent["title_sent"].append(get_sentiment(title_sentiment["compound"]))
+        title_sent["title_sent"].append(sentiment)
     except AttributeError:
         pass
 
@@ -142,8 +157,13 @@ for index, row in finviz_headlines.iterrows():
 title_sentiment_df = pd.DataFrame(title_sent)
 finviz_headlines = finviz_headlines.join(title_sentiment_df)
 
+st.subheader("Sentiment Detailed after filter")
+#filter non relevant news
+non_neutral = finviz_headlines.loc[finviz_headlines['title_sent'] != 0]
+st.write(non_neutral)
+
 st.subheader("Sentiment Statistics")
-st.write(finviz_headlines.describe())
+st.write(non_neutral.describe())
 
 
 ###
@@ -164,4 +184,4 @@ def word_cloud(text):
 
 
 st.subheader("Wordcloud for further analysis")
-word_cloud(finviz_headlines[('title',)].values)
+word_cloud(non_neutral[('title',)].values)
